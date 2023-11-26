@@ -22,7 +22,7 @@
     "nodemailer": "^6.9.6",
     "nodemon": "^3.0.1",
     "nvm": "^0.0.4",
-    "react-hook-form": "^7.48.2",
+    "sinon": "^17.0.1",
     "validator": "^13.11.0",
     "yarn": "^1.22.21"
   },

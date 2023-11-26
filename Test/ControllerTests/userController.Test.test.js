@@ -1,321 +1,349 @@
-const chai = require('chai');
-const chaiHttp = require('chai-http');
-const mongoose = require('mongoose');
+const request = require('supertest');
 const app = require('../../index'); 
-const { describe, before, it } = require('mocha');
+const nodemailer = require('nodemailer');
 
-const { expect } = chai;
-chai.use(chaiHttp);
+// Mock dependencies
+jest.mock('../../Models/userModel');
+jest.mock('../../helper/NotificationHandler');
+jest.mock('../../PaymentProcessor/bankModel');
+jest.mock('nodemailer')
 
+// Import modules after mocking
+const User = require('../../Models/userModel');
+const notificationHandler = require('../../helper/NotificationHandler');
+const bankModel = require('../../PaymentProcessor/bankModel');
+const UserController = require('../../Controller/userController');
+
+
+describe('UserController', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('signupUser', () => {
+    it('should create a new user and return user details and token', async () => {
+      User.signup.mockResolvedValueOnce({
+        _id: 'someUserId',
+        name: 'John Doe',
+        email: 'john@example.com',
+      });
+    
+      const req = {
+        body: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          password: 'Password@123',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+    
+      await UserController.signupUser(req, res);
+    
+      expect(User.signup).toHaveBeenCalledWith('John Doe', 'john@example.com', 'Password@123');
+      expect(res.status).toHaveBeenCalledWith(200); // This is expecting a 200 status code
+      expect(res.json).toHaveBeenCalledWith({
+        email: 'john@example.com',
+        token: expect.any(String),
+        user: {
+          _id: 'someUserId',
+          name: 'John Doe',
+          email: 'john@example.com',
+        },
+      });
+    });
+    
+
+    it('should handle signup errors and return a 400 status with an error message', async () => {
+      User.signup.mockRejectedValueOnce(new Error('Invalid email'));
+
+      const req = {
+        body: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          password: 'Password@123',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.signupUser(req, res);
+
+      expect(User.signup).toHaveBeenCalledWith('John Doe', 'john@example.com', 'Password@123');
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid email' });
+    });
+  });
+
+  describe('loginUser', () => {
+    it('should log in a user and return user details and token', async () => {
+      User.login.mockResolvedValueOnce({
+        _id: 'someUserId',
+        name: 'John Doe',
+        email: 'john@example.com',
+      });
+
+      const req = {
+        body: {
+          email: 'john@example.com',
+          password: 'Password@123',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.loginUser(req, res);
+
+      expect(User.login).toHaveBeenCalledWith('john@example.com', 'Password@123');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        email: 'john@example.com',
+        token: expect.any(String),
+        user: {
+          _id: 'someUserId',
+          name: 'John Doe',
+          email: 'john@example.com',
+        },
+      });
+    });
+
+    it('should handle login errors and return a 400 status with an error message', async () => {
+      User.login.mockRejectedValueOnce(new Error('Invalid credentials'));
+
+      const req = {
+        body: {
+          email: 'john@example.com',
+          password: 'Password@123',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.loginUser(req, res);
+
+      expect(User.login).toHaveBeenCalledWith('john@example.com', 'Password@123');
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid credentials' });
+    });
+  });
+
+  describe('forgotPassUser', () => {
+
+    it('should handle forgot password errors and return a 400 status with an error message', async () => {
+      User.forgotpass.mockRejectedValueOnce(new Error('User not found'));
+
+      const req = {
+        body: {
+          email: 'john@example.com',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.forgotPassUser(req, res);
+
+      expect(User.forgotpass).toHaveBeenCalledWith('john@example.com');
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'User not found' });
+    });
+  });
+  describe('changeUsername', () => {
+    it('should change the username and return user details', async () => {
+      const userMock = {
+        _id: 'someUserId',
+        name: 'John Doe',
+        email: 'john@example.com',
+        token: 'someToken',
+      };
+
+      jest.spyOn(User, 'changeUsername').mockResolvedValueOnce(userMock);
+
+      const req = {
+        body: {
+          id: 'someUserId',
+          name: 'NewUsername',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.changeUsername(req, res);
+
+      expect(User.changeUsername).toHaveBeenCalledWith('someUserId', 'NewUsername');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ email: 'john@example.com', token: 'someToken', user: userMock });
+    });
+
+    it('should handle errors and return a 500 status with an error message', async () => {
+      jest.spyOn(User, 'changeUsername').mockRejectedValueOnce(new Error('Internal server error'));
+
+      const req = {
+        body: {
+          id: 'someUserId',
+          name: 'NewUsername',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.changeUsername(req, res);
+
+      expect(User.changeUsername).toHaveBeenCalledWith('someUserId', 'NewUsername');
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+    });
+  });
+  describe('addCardDetailsToUser', () => {
+    it('should handle errors and return a 500 status with an error message', async () => {
+      jest.spyOn(User, 'findById').mockRejectedValueOnce(new Error('User not found'));
+
+      const req = {
+        body: {
+          id: 'someUserId',
+          cardNumber: '1234567890123456',
+          cardHolderName: 'John Doe',
+          expiryDate: '12/23',
+          cvv: '123',
+        },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      await UserController.addCardDetailsToUser(req, res);
+
+      expect(User.findById).toHaveBeenCalledWith('someUserId');
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+    });
+  });
+  const request = require('supertest');
+const app = require('../../index'); // Import your Express app
+
+jest.mock('../../Models/userModel');
+jest.mock('../../helper/NotificationHandler');
 
 const User = require('../../Models/userModel');
+const notificationHandler = require('../../helper/NotificationHandler');
+const UserController = require('../../Controller/userController');
 
-describe('User Routes', () => {
-  before(async () => {
-  
-    await mongoose.connect('mongodb://localhost:27017/testDB', { useNewUrlParser: true, useUnifiedTopology: true });
+describe('changePassword', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  after(async () => {
-   
-    await mongoose.disconnect();
-  });
+  it('should change the password and send notification on success', async () => {
+    const userMock = {
+      _id: 'someUserId',
+      name: 'John Doe',
+      email: 'john@example.com',
+    };
 
-  beforeEach(async () => {
+    jest.spyOn(User, 'changePassword').mockResolvedValueOnce(userMock);
     
-    await User.deleteMany({});
+
+    const req = {
+      body: {
+        email: 'john@example.com',
+        oldPassword: 'oldPassword123',
+        newPassword: 'newPassword456',
+        newConfirmPassword: 'newPassword456',
+      },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+
+    await UserController.changePassword(req, res);
+
+    expect(User.changePassword).toHaveBeenCalledWith(
+      'john@example.com',
+      'oldPassword123',
+      'newPassword456',
+      'newPassword456'
+    );
+   
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ user: userMock });
   });
 
-  describe('POST /signup', () => {
-    it('should create a new user', async () => {
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'Test@Password123',
-      };
 
-      const res = await chai.request(app).post('/signup').send(userData);
+  it('should handle token expired error', async () => {
+    jest.spyOn(User, 'changePassword').mockRejectedValueOnce({ name: 'TokenExpiredError' });
 
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('email', userData.email);
-      expect(res.body).to.have.property('token');
-      expect(res.body).to.have.property('user');
+    const req = {
+      body: {
+        email: 'john@example.com',
+        oldPassword: 'oldPassword123',
+        newPassword: 'newPassword456',
+        newConfirmPassword: 'newPassword456',
+      },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
 
-      const user = await User.findOne({ email: userData.email });
-      expect(user).to.exist;
-      expect(user.name).to.equal(userData.name);
-    });
+    await UserController.changePassword(req, res);
 
-    it('should handle invalid input', async () => {
-      const invalidUserData = {
-        
-        name: 'Test User',
-        password: 'TestPassword123',
-      };
-
-      const res = await chai.request(app).post('/signup').send(invalidUserData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
+    expect(User.changePassword).toHaveBeenCalledWith(
+      'john@example.com',
+      'oldPassword123',
+      'newPassword456',
+      'newPassword456'
+    );
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Token expired' });
   });
 
-  describe('POST /login', () => {
-    it('should log in an existing user', async () => {
-      // Create a user for testing
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'Test@Password123',
-      };
-      await User.create(userData);
+  it('should handle server error', async () => {
+    jest.spyOn(User, 'changePassword').mockRejectedValueOnce(new Error('Some server error'));
 
-      const loginData = {
-        email: userData.email,
-        password: userData.password,
-      };
+    const req = {
+      body: {
+        email: 'john@example.com',
+        oldPassword: 'oldPassword123',
+        newPassword: 'newPassword456',
+        newConfirmPassword: 'newPassword456',
+      },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
 
-      const res = await chai.request(app).post('/login').send(loginData);
+    await UserController.changePassword(req, res);
 
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('email', userData.email);
-      expect(res.body).to.have.property('token');
-      expect(res.body).to.have.property('user');
-    });
-
-    it('should handle invalid login credentials', async () => {
-      const invalidLoginData = {
-        email: 'nonexistent@example.com',
-        password: 'InvalidPassword123',
-      };
-
-      const res = await chai.request(app).post('/login').send(invalidLoginData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
-  });
-
-  describe('POST /forgot-password', () => {
-    it('should send a password reset email for a valid user', async () => {
-      const existingUser = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'TestPassword123',
-      };
-      await User.create(existingUser);
-
-      const forgotPasswordData = {
-        email: existingUser.email,
-      };
-
-      const res = await chai.request(app).post('/forgot-password').send(forgotPasswordData);
-
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('response');
-    });
-
-    it('should handle invalid email for password reset', async () => {
-      const invalidEmailData = {
-        email: 'nonexistent@example.com',
-      };
-
-      const res = await chai.request(app).post('/forgot-password').send(invalidEmailData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
-  });
-
-  describe('POST /reset-password/:id/:token', () => {
-    it('should reset the password for a valid user', async () => {
-     
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'TestPassword123',
-      };
-      const user = await User.create(userData);
-
-      const resetPasswordData = {
-        password: 'NewTestPassword456',
-      };
-
-      const res = await chai.request(app).post(`/reset-password/${user._id}/someValidToken`).send(resetPasswordData);
-
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('email', userData.email);
-      expect(res.body).to.have.property('user');
-    });
-
-    it('should handle invalid token for password reset', async () => {
-      const invalidTokenData = {
-        password: 'NewTestPassword456',
-      };
-
-      const res = await chai.request(app).post(`/reset-password/invalidUserId/invalidToken`).send(invalidTokenData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
-  });
-
-  describe('POST /change-username', () => {
-    it('should change the username for a valid user', async () => {
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'TestPassword123',
-      };
-      const user = await User.create(userData);
-
-      const changeUsernameData = {
-        id: user._id,
-        name: 'NewTestUser',
-      };
-
-      const res = await chai.request(app).post('/change-username').send(changeUsernameData);
-
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('email', userData.email);
-      expect(res.body).to.have.property('token');
-      expect(res.body).to.have.property('user');
-      expect(res.body.user).to.have.property('name', 'NewTestUser');
-    });
-
-    it('should handle invalid input for changing username', async () => {
-      const invalidData = {
-        // Missing id
-        name: 'NewTestUser',
-      };
-
-      const res = await chai.request(app).post('/change-username').send(invalidData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
-  });
-
-  describe('POST /change-password', () => {
-    it('should change the password for a valid user', async () => {
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'TestPassword123',
-      };
-      const user = await User.create(userData);
-
-      const changePasswordData = {
-        email: user.email,
-        oldPassword: userData.password,
-        newPassword: 'NewTestPassword456',
-        newConfirmPassword: 'NewTestPassword456',
-      };
-
-      const res = await chai.request(app).post('/change-password').send(changePasswordData);
-
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('user');
-    });
-
-    it('should handle invalid input for changing password', async () => {
-      const invalidData = {
-
-        oldPassword: 'TestPassword123',
-        newPassword: 'NewTestPassword456',
-        newConfirmPassword: 'NewTestPassword456',
-      };
-
-      const res = await chai.request(app).post('/change-password').send(invalidData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
-  });
-
-  describe('POST /add-card-details', () => {
-    it('should add card details for a valid user', async () => {
-      const userData = {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'TestPassword123',
-      };
-      const user = await User.create(userData);
-
-      const cardDetailsData = {
-        id: user._id,
-        cardNumber: '1234567890123456',
-        cardHolderName: 'Test User',
-        expiryDate: new Date(),
-        cvv: 123,
-      };
-
-      const res = await chai.request(app).post('/add-card-details').send(cardDetailsData);
-
-      expect(res.status).to.equal(200);
-      expect(res.body).to.have.property('message', 'Card details added successfully');
-      expect(res.body).to.have.property('user');
-      expect(res.body.user).to.have.property('creditCardDetails');
-    });
-
-    it('should handle invalid input for adding card details', async () => {
-      const invalidData = {
-        cardNumber: '1234567890123456',
-        cardHolderName: 'Test User',
-        expiryDate: new Date(),
-        cvv: 123,
-      };
-
-      const res = await chai.request(app).post('/add-card-details').send(invalidData);
-
-      expect(res.status).to.equal(400);
-      expect(res.body).to.have.property('error');
-    });
-  });before(async () => {
-    // Connect to the database before running tests
-    await mongoose.connect('mongodb://localhost:27017/your-test-database', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      useFindAndModify: false,
-      useCreateIndex: true,
-    });
-  });
-
-  after(async () => {
-    // Disconnect from the database after running tests
-    await mongoose.disconnect();
-  });
-
-  describe('POST /api/signup', () => {
-    it('should sign up a new user', async () => {
-      const res = await chai
-        .request(app)
-        .post('/api/signup')
-        .send({
-          name: 'TestUser',
-          email: 'test@example.com',
-          password: 'Test@Password123!',
-        });
-
-      expect(res).to.have.status(200);
-      expect(res.body).to.be.an('object');
-      expect(res.body).to.have.property('email', 'test@example.com');
-      expect(res.body).to.have.property('token');
-      expect(res.body).to.have.property('user');
-    });
-
-    it('should handle signup validation errors', async () => {
-      const res = await chai
-        .request(app)
-        .post('/api/signup')
-        .send({
-          // Missing required fields
-        });
-
-      expect(res).to.have.status(400);
-      expect(res.body).to.be.an('object');
-      expect(res.body).to.have.property('error');
-    });
+    expect(User.changePassword).toHaveBeenCalledWith(
+      'john@example.com',
+      'oldPassword123',
+      'newPassword456',
+      'newPassword456'
+    );
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Server error' });
   });
 });
+
+
+});
+
+
+
 

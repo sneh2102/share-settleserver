@@ -16,7 +16,7 @@ const contactUs = (req, res) => {
         }
     });
     
-    var mailOptions = {
+    let mailOptions = {
         from: process.env.CONTACTUS_USERNAME,
         to: process.env.SHARESETTLE_EMAIL,
         subject: `User contacted: ${subject}`,

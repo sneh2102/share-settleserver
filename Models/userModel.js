@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.statics.signup = async function(name, email, password) {
+    console.log(name,email,password);
     if(!email || !password || !name)
     {
         throw Error('All fields must be filled')
@@ -60,16 +61,17 @@ userSchema.statics.signup = async function(name, email, password) {
     {
         throw Error('Password must contain 8 charactor, alphabats, number, special charactor')
     }
-
     const exists = await this.findOne({ email })
+    console.log(exists);
     if (exists) {
         throw Error("Email Already Exists")  
     }
 
     const salt = await bcrypt.genSalt(10)
     const hash = await bcrypt.hash(password, salt)
-
+    console.log(hash);
     const user = await this.create({ name, email, password: hash })
+    console.log(user);
     return user
 }
 

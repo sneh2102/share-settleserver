@@ -1,7 +1,7 @@
 
 function simplifyDebts(transactions){
-    var splits = new Array()
-    var transaction_map = new Map(Object.entries(transactions)); //converting JSON to map object 
+    let splits = new Array()
+    let transaction_map = new Map(Object.entries(transactions)); //converting JSON to map object 
 
     function settleSimilarFigures(){
         let vis = new Map();

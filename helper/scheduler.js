@@ -4,13 +4,17 @@ const {makeSettlement} = require('./makeSettlement');
 const split = require('./spliting');
 const {processPayment} = require('../PaymentProcessor/processor');
 const {CronTime} = require('cron-time-generator');
+const {calculatePeriodFromString, getDate} = require('./dateConversion');
 
+const user = require('../Models/userModel');
 const group = require('../Models/groupModel');
+const notificationHandler = require('./NotificationHandler');
 
 // create a job based on the settlement period (a cron expression)
 const jobForSettlement = async (settlementPeriod, groupId) => {
-        const date = await calculatePeriodFromString(settlementPeriod);
-        console.log(date);
+
+        const date = calculatePeriodFromString(settlementPeriod);
+        console.log("Date:  ",date);
         const job = schedule.scheduleJob(date, async function(){
         console.log("settlement job started");
         groupObj = await group.findById(groupId);
@@ -38,12 +42,28 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
         
         // payment processing and settlement between members
         settlementAmountArray.forEach(async function(settlementInfo){
+
+            const action = "settlement";
+            let status = "successful";
+
+            const senderEmail = settlementInfo[0];
+            const receiverEmail = settlementInfo[1];
+            const amount = settlementInfo[2];
+
+            const senderName = await getUserFromEmail(senderEmail);
+            const receiverName = await getUserFromEmail(receiverEmail);
+
+            // if there is no amount to settle then return
+            if(amount == 0){
+                return;
+            }
+
             // settlementInfo consists of these information -> from, to, amount
             let paymentReq = {
                 body:{
-                    sender: settlementInfo[0],
-                    receiver: settlementInfo[1],
-                    amount: settlementInfo[2]
+                    sender: senderEmail,
+                    receiver: receiverEmail,
+                    amount: amount
                 }
             };
             let paymentRes = await processPayment(paymentReq);
@@ -65,6 +85,10 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
 
                 if(paymentRes.error){
                     console.log("Payment failed");
+                    status = "failed";
+
+                    // send notifications
+                    pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupObj.name, action, status);
                     return;
                 }
             }
@@ -74,9 +98,9 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
             let settlementReq = {
                 body:{
                     id: groupId,
-                    From: settlementInfo[0],
-                    To: settlementInfo[1],
-                    Amount: settlementInfo[2]
+                    From: senderEmail,
+                    To: receiverEmail,
+                    Amount: amount
                 }
             }
             // make settlement
@@ -85,7 +109,7 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
             // retry settlement if failed
             if(settlementRes.error){
                 console.log("Error in making settlement");
-                retryCpunt = 3;
+                retryCount = 3;
                 while(retryCount > 0){
                     retryCount--;
                     console.log("retrying settlement");
@@ -95,45 +119,106 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
                     }
                 }
             }
+
+            if(!settlementRes.error){
+                console.log("Settlement successful");
+                status = "successful";
+            }
+            else{
+                console.log("Settlement failed");
+                status = "failed";
+            }
+
+            // send notifications
+            pushNotification(senderEmail, senderName, receiverEmail, receiverName,amount, groupObj.name, action, status);
         });
-
-
     });
 };
 
-async function calculatePeriodFromString(settlementPeriod){
-    let parts = settlementPeriod.split(" ");
-    let numerical = parseInt(parts[0]);
-    let unit = parts[1].toLowerCase();
 
-    let daysInWeek = 7;
-    let avgDaysInMonth = 30;
-    let avgDaysInYear = 365;
+// create a scheduler for email notifications for reminding users to settle their expenses
+// notifications are sent 2 days before the settlement period
+const jobForEmailNotification = async (numberOfDays,unit, groupId) => {
 
-    let dateObj = new Date();
-    switch(unit){
-        case "minute":
-        case "minutes":
-            dateObj = CronTime.every(numerical).minutes();
-            break;
-        case "day":
-        case "days":
-            dateObj = CronTime.every(numerical).days();
-            break;
-        case "week":
-        case "weeks":
-            dateObj = CronTime.every(daysInWeek*numerical).days();
-        case "month":
-        case "months":
-            dateObj = CronTime.every(avgDaysInMonth*numerical).days();
-            break;
-        case "year":
-        case "years":
-            dateObj = CronTime.every(avgDaysInYear*numerical).days();
-        default:
-            dateObj = CronTime.every(daysInWeek).days();
-    }
-    return dateObj;
+    const date = getDate(numberOfDays,unit)
+    const jobId = schedule.scheduleJob(date, async function(){
+     const groupObj = await group.findById(groupId);
+     console.log("Group: -----------------------------",groupObj);
+        console.log("email notification job started for group: ",groupObj.name);
+
+        if(!groupObj){
+            console.log("No group is present");
+            console.log("Cancelling the job");
+            // cancel associated scheduler
+            jobId.cancel();
+            return;
+        }
+
+        // no members present in the group
+        if(groupObj.members.length == 0){
+            console.log("No group members present in the group");
+            console.log("Cancelling the job as no members are present");
+            // cancel associated scheduler
+            jobId.cancel();
+            return;
+        }
+
+        // send email notifications to all the members
+        settlementAmountArray = split(groupObj.groupExpensesList[0]);
+
+        settlementAmountArray.forEach(async function(settlementInfo){
+            const senderEmail = settlementInfo[0];
+            const receiverEmail = settlementInfo[1];
+            const amount = settlementInfo[2];
+
+            if(amount == 0){
+                return;
+            }
+            const senderName = await getUserFromEmail(senderEmail);
+            const receiverName = await getUserFromEmail(receiverEmail);
+
+            const action = "settlementReminder";
+
+            // send notifications
+            pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupObj.name, action, null);
+        });
+    });
 }
 
-module.exports = {jobForSettlement, calculatePeriodFromString};
+async function getUserFromEmail(userEmail){
+    console.log(userEmail);
+    const userObj = await user.findOne({email: userEmail});
+    console.log(userObj.email);
+    if(!userObj){
+        return null;
+    }
+    return userObj.name;
+}
+
+async function pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupName, action, status){
+    // send notification to sender
+    notificationHandler({
+        email: senderEmail,
+        user1: senderName,
+        groupName: groupName,
+        action: action,
+        user2: receiverName,
+        status: status,
+        amount: amount,
+        date: new Date()
+    });
+
+    // send notification to receiver
+    notificationHandler({
+        email: receiverEmail,
+        user1: senderName,
+        groupName: groupName,
+        action: action,
+        user2: receiverName,
+        status: status,
+        amount: amount,
+        date: new Date()
+    });
+}
+
+module.exports = {jobForSettlement, jobForEmailNotification};

@@ -9,7 +9,7 @@ const makeSettlement = async(req) =>{
 
 
         if (!group) {
-            var err = new Error("Invalid Group Id");
+            let err = new Error("Invalid Group Id");
             err.status = 400;
             throw err;
         }
@@ -17,7 +17,7 @@ const makeSettlement = async(req) =>{
        group.groupExpensesList[0][req.body.From] += req.body.Amount
        group.groupExpensesList[0][req.body.To] -= req.body.Amount
 
-       var update_response = await Group.updateOne({_id: group._id}, {$set:{groupExpensesList: group.groupExpensesList}})
+       let update_response = await Group.updateOne({_id: group._id}, {$set:{groupExpensesList: group.groupExpensesList}})
 
        res = {
             message: "Settlement successfully!",

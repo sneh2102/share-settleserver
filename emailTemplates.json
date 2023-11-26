@@ -1,33 +1,35 @@
 
 {
-    "userSignup": {
-      "subject": "Welcome to Share Settle!",
-      "text": "Welcome {userName} to Share Settle! We're thrilled to have you on board. Start managing your expenses and settle up with friends effortlessly."
+  "userSignup": {
+    "subject": "Welcome to Share Settle!",
+    "text": "Welcome {userName} to Share Settle! We're thrilled to have you on board. Start managing your expenses and settle up with friends effortlessly."
+  },
+  "groupCreation": {
+    "subject": "New Group Created on Share Settle",
+    "text": "A new group '{groupName}' has been created on Share Settle. Start sharing expenses and settling up with your group members."
+  },
+  "settlementNotification": {
+    "subject": "Settlement on Share Settle",
+    "text": "A settlement has been initiated for the group '{groupName}'. Log in to Share Settle to view and settle your expenses."
+  },
+    "resetPassword": {
+      "subject": "Password Reset Successful",
+      "text": "Hello {userName},\n\nYour password has been successfully reset. If you didn't initiate this change, please contact support immediately."
     },
-    "groupCreation": {
-      "subject": "New Group Created on Share Settle",
-      "text": "A new group '{groupName}' has been created on Share Settle. Start sharing expenses and settling up with your group members."
+    "passwordChange": {
+      "subject": "Password Change ",
+      "text": "Hello {userName},\n\nYour password has been changed successfully. If this wasn't you, please contact support immediately."
     },
-    "settlementNotification": {
-      "subject": "Settlement on Share Settle",
-      "text": "A settlement has been initiated for the group '{groupName}'. Log in to Share Settle to view and settle your expenses."
+    "changeUsername": {
+      "subject": "Username Change",
+      "text": "Hello {userName},\n\nYour Username has been changed successfully. If this wasn't you, please contact support immediately."
     },
-      "resetPassword": {
-        "subject": "Password Reset Successful",
-        "text": "Hello {userName},\n\nYour password has been successfully reset. If you didn't initiate this change, please contact support immediately."
-      },
-      "passwordChange": {
-        "subject": "Password Change ",
-        "text": "Hello {userName},\n\nYour password has been changed successfully. If this wasn't you, please contact support immediately."
-      },
-      "changeUsername": {
-        "subject": "Username Change",
-        "text": "Hello {userName},\n\nYour password has been changed successfully. If this wasn't you, please contact support immediately."
-      },
-      "Settlement": {
-        "subject": "Settlement {status} between {user1} and {user2} on Share Settle",
-        "text": " Dear {user1} and {user2},\n\nWe're writing to inform you that the settlement between you two on Share Settle has been {status}.\nAmount: ${amount}\nDate: ${date}\n\nNext Steps:\nPlease log in to Share Settle to see the changes. If you encounter any issues, please contact our support team for assistance.\nThank you for using Share Settle!\nSincerely,\nThe Share Settle Team"
-      }
-
-  }
-  
+    "settlement": {
+      "subject": "Settlement Status",
+      "text": " Dear {user2} and {user1},\n\nWe're writing to inform you that the settlement between you two on Share Settle has been {status}.\nAmount: {amount}\nDate: {date}\n\nNext Steps:\nPlease log in to Share Settle to see the changes. If you encounter any issues, please contact our support team for assistance.\nThank you for using Share Settle!\nSincerely,\nThe Share Settle Team"
+    },
+    "settlementReminder": {
+          "subject": "Reminder for Auto Settlement on Share Settle",
+          "text": "Dear {user2},\n\nWe hope this message finds you well. This is a friendly reminder regarding the upcoming automatic settlement on Share Settle.\n\n**Settlement Details:**\n Date: {date}\n\n**Upcoming Settlement:**\nA scheduled settlement for the group {groupName} is approaching. Share Settle will automatically calculate and settle the outstanding expenses among the members in 2 days.\n\n**What to Expect:**\n- The settlement process will be initiated automatically.\n- You will receive a summary of the settled amounts and details.\n\n**Next Steps:**\n- Log in to your Share Settle account to review the settlement details.\n- If you have any questions or concerns, please contact our support team.\n\nThank you for using Share Settle to manage your expenses effortlessly.\n\nBest regards,\nThe Share Settle Team"
+    }
+}

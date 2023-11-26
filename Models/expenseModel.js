@@ -37,7 +37,7 @@ const expenseSchema = new mongoose.Schema({
         required: true
     },
     expenseDistribution: {
-        type: String,
+        type: Number,
         required: true
     },
     settledby: {

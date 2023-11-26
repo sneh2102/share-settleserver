@@ -1,17 +1,20 @@
 const Group = require("../Models/groupModel");
-const Expense = require("../Models/expenseModel")
-const User = require("../Models/userModel")
-const notificationHandler = require('../helper/NotificationHandler')
-const splitCalculator = require('../helper/spliting')
-const moveMemberToSettled = require('../helper/moveMemberToSettled')
-const scheduler = require('../helper/scheduler')
+const Expense = require("../Models/expenseModel");
+const User = require("../Models/userModel");
+const notificationHandler = require('../helper/NotificationHandler');
+const splitCalculator = require('../helper/spliting');
+const moveMemberToSettled = require('../helper/moveMemberToSettled');
+const scheduler = require('../helper/scheduler');
+const dateConversion = require('../helper/dateConversion');
+const { get } = require("lodash");
 
 // create a new group
 const createGroup = async (req, res) => {
-    const {jobForSettlement}=scheduler
+    const {jobForSettlement, jobForEmailNotification}=scheduler;
+    const {calculatePeriodFromString, getDate, getNumberOfDays}=dateConversion;
     
-    var responseStatus = 200;
-    var response = {};
+    let responseStatus = 200;
+    let response = {};
     if(!req.body ||!req.body.name || !req.body.members || !req.body.settlePeriod){
         responseStatus = 404;
         response = { 
@@ -23,9 +26,9 @@ const createGroup = async (req, res) => {
             members: req.body.members,
             settlePeriod: req.body.settlePeriod
         });
-        var splitJson = {}
+        let splitJson = {}
 
-            for (var user of group.members) {
+            for (let user of group.members) {
                 splitJson[user] = 0
             }
             group.groupExpensesList = splitJson
@@ -35,8 +38,19 @@ const createGroup = async (req, res) => {
             const savedGroup = await group.save();
 
             const groupName = savedGroup.name;
+
+            // scheduler for settlement
             jobForSettlement(savedGroup.settlePeriod, savedGroup._id);
             const action = 'groupCreation';
+
+            // get the number of days for scheduler reminder notification
+            let parts = savedGroup.settlePeriod.split(" ");
+            let numerical = parseInt(parts[0]);
+            let unit = parts[1].toLowerCase();
+
+            // notification 2 days before the settlement period
+            let daysToRepeat = getNumberOfDays(numerical, unit) - 2;
+            jobForEmailNotification(daysToRepeat, unit ,savedGroup._id);
 
             for (const member of savedGroup.members) {
                 const user = await User.findOne({email: member});
@@ -51,7 +65,7 @@ const createGroup = async (req, res) => {
                      amount: null,
                      date: null}
                     
-                    notificationHandler(param);
+                   await notificationHandler(param);
                 }
             }
 
@@ -72,8 +86,8 @@ const createGroup = async (req, res) => {
 // fetch all groups of a user by user email
 const fetchUserGroups = async (req, res) => {
 
-    var responseStatus = 200;
-    var response;
+    let responseStatus = 200;
+    let response;
     if(!req.body && !req.body.email){
         responseStatus = 404;
         response = {
@@ -100,8 +114,8 @@ const fetchUserGroups = async (req, res) => {
 
 const fetchGroup = async (req, res) => {
     const { id } = req.params;
-    var responseStatus = 200;
-    var response;
+    let responseStatus = 200;
+    let response;
         try{
             const queryResults = await Group.findById(id);
             response = {
@@ -122,7 +136,7 @@ const fetchGroup = async (req, res) => {
 
 
 const clearExpenseList = async (groupId, amount, ownerOfExpense, involved) => {
-    var group = await Group.findOne({
+    let group = await Group.findOne({
         _id: groupId
     })
     group.groupTotal -= amount
@@ -130,7 +144,7 @@ const clearExpenseList = async (groupId, amount, ownerOfExpense, involved) => {
     expenseDistribution = amount / involved.length
     expenseDistribution = Math.round((expenseDistribution + Number.EPSILON) * 100) / 100;
 
-    for (var user of involved) {
+    for (let user of involved) {
         group.groupExpensesList[0][user] += expenseDistribution
     }
 
@@ -149,7 +163,7 @@ const clearExpenseList = async (groupId, amount, ownerOfExpense, involved) => {
 
 
 const addExpenseList = async (groupId, amount, ownerOfExpense, involved) => {
-    var group = await Group.findOne({
+    let group = await Group.findOne({
         _id: groupId
     })
     group.groupTotal += amount
@@ -157,7 +171,7 @@ const addExpenseList = async (groupId, amount, ownerOfExpense, involved) => {
     expenseDistribution = amount / involved.length
     expenseDistribution = Math.round((expenseDistribution  + Number.EPSILON) * 100) / 100;
     
-    for (var user of involved) {
+    for (let user of involved) {
         group.groupExpensesList[0][user] -= expenseDistribution
     }
     
@@ -181,7 +195,7 @@ const groupBalanceSheet = async(req, res) =>{
         })
         
         if (!group) {
-            var err = new Error("Invalid Group Id")
+            let err = new Error("Invalid Group Id")
             err.status = 400
             throw err
         }
@@ -234,7 +248,7 @@ const leaveGroup = async (req, res) => {
         })
         const {id,From,To,Amount}=req.body
         if (!group) {
-            var err = new Error("Invalid Group Id")
+            let err = new Error("Invalid Group Id")
             err.status = 400
             throw err
         }
@@ -245,7 +259,7 @@ const leaveGroup = async (req, res) => {
        
        moveMemberToSettled(id,From)
        
-       var update_response = await Group.updateOne({_id: group._id}, {$set:{groupExpensesList: group.groupExpensesList}})
+       let update_response = await Group.updateOne({_id: group._id}, {$set:{groupExpensesList: group.groupExpensesList}})
 
        res.status(200).json({
         message: "Settlement successfully!",

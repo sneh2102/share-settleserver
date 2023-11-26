@@ -20,7 +20,6 @@ const notificationHandler = async (params) => {
     const template = emailTemplates[action];
 
     if (!template) {
-        console.error('Invalid action:', action);
         return {
             success: false,
             message: 'Invalid action. Email not sent.'
@@ -28,10 +27,10 @@ const notificationHandler = async (params) => {
     }
 
     const mailOptions = {
-        from: 'sharesettle@outlook.com',
+        from: process.env.SHARESETTLE_EMAIL,
         to: email,
         subject: template.subject,
-        text: template.text.replace('{userName}', user1).replace('{groupName}', groupName).replace('{user1}', user1).replace('{user2}', user2).replace('{status}', status).replace('{Amount}', amount).replace('{Date}', date)
+        text: template.text.replace('{userName}', user1).replace('{groupName}', groupName).replace('{user1}', user1).replace('{user2}', user2).replace('{status}', status).replace('{amount}', amount).replace('{date}', date)
     };
 
     try {
@@ -43,7 +42,6 @@ const notificationHandler = async (params) => {
             message: 'Email sent successfully'
         };
     } catch (error) {
-        console.error('Error sending email:', error);
         return {
             success: false,
             message: 'Error sending email. Please try again later.'

@@ -25,8 +25,10 @@ const loginUser = async (req, res) => {
 
 const signupUser = async (req, res) => {
     const {name, email, password} = req.body
+    console.log(req.body);
     try{
         const user = await User.signup(name ,email, password)
+        console.log(user);
         const token= createToken(user._id)
         const param={
           email: user.email, 
@@ -98,7 +100,7 @@ const forgotPassUser = async (req, res) => {
           }
           });
           
-          var mailOptions = {
+          let mailOptions = {
             from: 'sharesettle@outlook.com',
             to: email,
             subject: 'Reset Your Password',
@@ -135,9 +137,7 @@ const changeUsername = async (req, res) => {
     notificationHandler(params);
     res.status(200).json({ email: user.email, token: user.token, user });
   } catch (err) {
-    if (err) {
-      toast.error(err.message);
-    }
+    res.status(500).json({error: "Internal server error"})
   }
 };
 
@@ -170,7 +170,7 @@ const changePassword = async (req, res) => {
   }
 }
 
-  const getUser = async (req,res) => {
+const getUser = async (req,res) => {
     try {
       const user = await User.getUser();
       res.status(200).json({ user });
@@ -187,8 +187,7 @@ const addCardDetailsToUser = async (req, res) => {
       if (!user) {
           return res.status(404).json({ error: 'User not found' });
       }
-
-
+      
       user.creditCardDetails = {
           cardNumber,
           cardHolderName,
@@ -202,7 +201,6 @@ const addCardDetailsToUser = async (req, res) => {
 
       res.status(200).json({ message: 'Card details added successfully', user });
   } catch (error) {
-      console.error(error);
       res.status(500).json({ error: 'Internal server error' });
   }
 };
