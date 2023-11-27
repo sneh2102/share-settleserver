@@ -95,19 +95,19 @@ const forgotPassUser = async (req, res) => {
             ciphers:'SSLv3'
           },
           auth: {
-            user: 'sharesettle@outlook.com',
-            pass: 'Group1asdc'
+            user: process.env.SHARESETTLE_EMAIL,
+            pass: process.env.CONTACTUS_PASSWORD
           }
           });
           
           let mailOptions = {
-            from: 'sharesettle@outlook.com',
+            from: process.env.SHARESETTLE_EMAIL,
             to: email,
             subject: 'Reset Your Password',
-            text: `http://localhost:3000/reset-password/${user._id}/${token}`
+            text: `https://share-settle-8j0g.onrender.com/reset-password/${user._id}/${token}`
           };
           
-          const response = transporter.sendMail(mailOptions);
+          const response = await transporter.sendMail(mailOptions);
           if(response)
           {
             res.status(200).json({response})
