@@ -41,7 +41,7 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
         settlementAmountArray = split(groupObj.groupExpensesList[0]);
         
         // payment processing and settlement between members
-        settlementAmountArray.forEach(async function(settlementInfo){
+        for (const settlementInfo of settlementAmountArray) {
 
             const action = "settlement";
             let status = "successful";
@@ -88,7 +88,7 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
                     status = "failed";
 
                     // send notifications
-                    pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupObj.name, action, status);
+                    await pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupObj.name, action, status);
                     return;
                 }
             }
@@ -130,8 +130,8 @@ const jobForSettlement = async (settlementPeriod, groupId) => {
             }
 
             // send notifications
-            pushNotification(senderEmail, senderName, receiverEmail, receiverName,amount, groupObj.name, action, status);
-        });
+           await pushNotification(senderEmail, senderName, receiverEmail, receiverName,amount, groupObj.name, action, status);
+        };
     });
 };
 
@@ -180,7 +180,7 @@ const jobForEmailNotification = async (numberOfDays,unit, groupId) => {
             const action = "settlementReminder";
 
             // send notifications
-            pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupObj.name, action, null);
+           await pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupObj.name, action, null);
         });
     });
 }
@@ -197,7 +197,7 @@ async function getUserFromEmail(userEmail){
 
 async function pushNotification(senderEmail, senderName, receiverEmail, receiverName, amount, groupName, action, status){
     // send notification to sender
-    notificationHandler({
+    await notificationHandler({
         email: senderEmail,
         user1: senderName,
         groupName: groupName,
@@ -209,7 +209,7 @@ async function pushNotification(senderEmail, senderName, receiverEmail, receiver
     });
 
     // send notification to receiver
-    notificationHandler({
+   await notificationHandler({
         email: receiverEmail,
         user1: senderName,
         groupName: groupName,
